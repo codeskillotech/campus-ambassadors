@@ -63,20 +63,26 @@ async function createSendGridClient() {
 /**
  * Send email via SendGrid
  */
-export const sendEmail = async (to, subject, text, html = null) => {
+export const sendEmail = async ({ to, subject, html, text }) => {
   try {
     const sgClient = await createSendGridClient();
 
+    // If only one of html/text is provided, SendGrid is fine with that.
+    // But ensure we don't pass null/undefined as strings.
     const msg = {
       to,
       from: {
-        email: process.env.SENDGRID_FROM, // must match verified sender in SendGrid
+        email: process.env.SENDGRID_FROM,
         name: process.env.SENDGRID_NAME || "SkillOTech",
       },
       subject,
-      text,
-      ...(html && { html }),
+      ...(typeof text === "string" && text.length ? { text } : {}),
+      ...(typeof html === "string" && html.length ? { html } : {}),
     };
+
+    if (!msg.text && !msg.html) {
+      throw new Error("Provide at least one of `text` or `html`.");
+    }
 
     await sgClient.send(msg);
     console.log(`📧 Email sent successfully to ${to}`);
@@ -86,3 +92,4 @@ export const sendEmail = async (to, subject, text, html = null) => {
     return { success: false, error: error.message };
   }
 };
+

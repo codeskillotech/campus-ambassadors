@@ -14,6 +14,8 @@ import {
   submitActivitiesFormLink,
   getActivitiesFormLink,
   changeAmbassadorPassword,
+  sendForgotPasswordOtp,
+  resetPasswordWithOtps,
   
 } from "../controller/user.controller.js"; // include .js
 
@@ -31,4 +33,6 @@ router.post("/links", isAmbassador, submitLinks);
 router.post("/form-link/activities", isAmbassador, submitActivitiesFormLink);
 router.get("/form-link/activities", isAmbassador, getActivitiesFormLink);
 router.post("/change-password", isAmbassador, changeAmbassadorPassword);
+router.post("/forgot-password/send-otp", sendForgotPasswordOtp);
+router.post("/forgot-password/reset", resetPasswordWithOtps);
 export default router;

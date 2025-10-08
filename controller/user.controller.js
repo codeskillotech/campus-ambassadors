@@ -331,3 +331,119 @@ export const changeAmbassadorPassword = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
+export const sendForgotPasswordOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email)
+      return res.status(400).json({ success: false, message: "Email is required" });
+
+    const ambassador = await Ambassador.findOne({ email });
+
+    // Optional: generic response to prevent user enumeration
+    if (!ambassador) {
+      return res.json({
+        success: true,
+        message: "If this email is registered, an OTP has been sent.",
+      });
+    }
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Remove previous OTPs and save new one
+    await Otp.deleteMany({ email });
+    await new Otp({ email, otp }).save();
+
+    // Send email
+    await sendEmail({
+      to: email,
+      subject: "SkillOTech Ambassador: Password Reset OTP",
+      html: `
+        <p>Hi ${ambassador.fullName || "Ambassador"},</p>
+        <p>Your OTP to reset your password is <b>${otp}</b>. It is valid for <b>5 minutes</b>.</p>
+        <p>If you did not request this, you can safely ignore this email.</p>
+      `,
+      text: `Hi ${ambassador.fullName || "Ambassador"},
+Your OTP to reset your password is ${otp}. It is valid for 5 minutes.
+If you did not request this, you can ignore this email.`,
+    });
+
+    return res.json({
+      success: true,
+      message: "If this email is registered, an OTP has been sent.",
+    });
+  } catch (error) {
+    console.error("Forgot Password OTP Error:", error.message);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
+
+/* ------------------ Forgot Password: Reset with OTP ------------------ */
+export const resetPasswordWithOtps = async (req, res) => {
+  try {
+    const { email, otp, newPassword, confirmPassword } = req.body;
+
+    if (!email || !otp || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, OTP, new password and confirm password are required",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res
+        .status(400)
+        .json({ success: false, message: "New password and confirm password do not match" });
+    }
+
+    // Password strength rule
+    const strongEnough = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(newPassword);
+    if (!strongEnough) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 8 characters and include letters and numbers",
+      });
+    }
+
+    // Verify OTP
+    const otpDoc = await Otp.findOne({ email, otp });
+    if (!otpDoc) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    // Find user
+    const ambassador = await Ambassador.findOne({ email });
+    if (!ambassador) {
+      await Otp.deleteMany({ email });
+      return res.status(400).json({ success: false, message: "Invalid request" });
+    }
+
+    // Hash and save new password
+    const hashed = await bcrypt.hash(newPassword, 10);
+    ambassador.password = hashed;
+    await ambassador.save();
+
+    // Delete OTPs
+    await Otp.deleteMany({ email });
+
+    // Notify success
+    await sendEmail({
+      to: email,
+      subject: "SkillOTech Ambassador: Password Changed",
+      html: `
+        <p>Hi ${ambassador.fullName || "Ambassador"},</p>
+        <p>Your password was changed successfully. If this wasn't you, contact support immediately.</p>
+      `,
+      text: `Hi ${ambassador.fullName || "Ambassador"},
+Your password was changed successfully. If this wasn't you, contact support immediately.`,
+    });
+
+    return res.json({
+      success: true,
+      message: "Password reset successful. You can now log in with your new password.",
+    });
+  } catch (error) {
+    console.error("Reset Password Error:", error.message);
+    return res.status(500).json({ success: false, error: error.message });
+  }
+};
