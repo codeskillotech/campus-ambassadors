@@ -4,10 +4,19 @@ import { sendEmail } from "../middleware/sendEmail.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 /* --------------------- Send OTP --------------------- */
+/* --------------------- Send OTP --------------------- */
 export const sendOtp = async (req, res) => {
   try {
     const { email } = req.body;
-    if (!email) return res.status(400).json({ success: false, message: "Email is required" });
+    if (!email) {
+      return res.status(400).json({ success: false, message: "Email is required" });
+    }
+
+    // (Optional but recommended) Basic email format check
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!emailOk) {
+      return res.status(400).json({ success: false, message: "Invalid email format" });
+    }
 
     // Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -15,17 +24,38 @@ export const sendOtp = async (req, res) => {
     // Remove old OTP for this email (avoid duplicates)
     await Otp.deleteMany({ email });
 
-    // Save new OTP
+    // Save new OTP (consider adding TTL on the model; see note below)
     await new Otp({ email, otp }).save();
 
-    // Send email
-    await sendEmail(email, "Your SkillOTech Ambassador OTP", `Your OTP is ${otp}.`);
+    // ✅ Correct usage: pass an object with to/subject/html/text
+    const emailResp = await sendEmail({
+      to: email,
+      subject: "Your SkillOTech Ambassador OTP",
+      html: `
+        <p>Hi,</p>
+        <p>Your OTP is <b>${otp}</b>. It’s valid for <b>10 minutes</b>.</p>
+        <p>If you didn’t request this, you can ignore this email.</p>
+      `,
+      text: `Your OTP is ${otp}. It’s valid for 10 minutes.`,
+    });
 
-    res.json({ success: true, message: "OTP sent to email." });
+    // If email sending failed, surface that to the client
+    if (!emailResp?.success) {
+      return res.status(502).json({
+        success: false,
+        message: "Failed to send OTP email",
+        // Avoid leaking internals in prod; log full error on server
+        error: emailResp?.error || "Email provider error",
+      });
+    }
+
+    return res.json({ success: true, message: "OTP sent to email." });
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error("sendOtp error:", error);
+    return res.status(500).json({ success: false, error: error.message });
   }
 };
+
 
 /* --------------------- Verify OTP --------------------- */
 export const verifyOtp = async (req, res) => {
