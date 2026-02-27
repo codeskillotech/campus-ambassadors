@@ -36,5 +36,5 @@ app.get("/", (req, res) => {
 // Server
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () =>
-  console.log(`🚀 Server running on http://localhost:${PORT}`)
+  console.log(`🚀 Server running on http://173.212.206.218:${PORT}`)
 );
