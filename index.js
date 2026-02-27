@@ -34,7 +34,17 @@ app.get("/", (req, res) => {
 });
 
 // Server
+// const PORT = process.env.PORT || 5001;
+// app.listen(PORT, () =>
+//   console.log(`🚀 Server running on http://173.212.206.218:${PORT}`)
+// );
 const PORT = process.env.PORT || 5001;
+
+const BASE_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.BASE_URL_PROD
+    : process.env.BASE_URL_LOCAL;
+
 app.listen(PORT, () =>
-  console.log(`🚀 Server running on http://173.212.206.218:${PORT}`)
+  console.log(`🚀 Server running on ${BASE_URL}`)
 );
