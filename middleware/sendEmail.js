@@ -29,7 +29,7 @@ export const sendEmail = async ({ to, subject, text, html }) => {
 
     const mailOptions = {
       // ✅ make from ALWAYS a proper string
-      from: `SkillOTech <${fromEmail}>`,
+      from: fromEmail,
       to,
       subject,
       text,
