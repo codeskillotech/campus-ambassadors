@@ -1,95 +1,43 @@
-// import nodemailer from "nodemailer";
+import nodemailer from "nodemailer";
 
-// async function createGmailTransporter() {
-//   try {
-//     const transporter = nodemailer.createTransport({
-//       service: "gmail", // use Gmail service
-//       auth: {
-//         user: process.env.SMTP_USER,
-//         pass: process.env.SMTP_PASS,
-//       },
-//     });
+async function createGmailTransporter() {
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
 
-//     await transporter.verify();
-//     console.log("✅ Gmail SMTP connected successfully!");
-//     return transporter;
-//   } catch (err) {
-//     console.error("❌ Gmail SMTP verify failed:", err.message);
-//     throw err;
-//   }
-// }
-
-// export const sendEmail = async (to, subject, otp) => {
-//   try {
-//     const transporter = await createGmailTransporter();
-
-//     const mailOptions = {
-//       from: `"SkillOTech" <${process.env.SMTP_USER}>`,
-//       to,
-//       subject,
-//       text: `Hi,\n\nYour OTP is: ${otp}\nThis code will expire in 5 minutes.\n\n- SkillOTech Team`,
-//       html: `<p>Hi,</p>
-//              <p>Your OTP is: <b>${otp}</b></p>
-//              <p>This code will expire in 5 minutes.</p>
-//              <p>- SkillOTech Team</p>`,
-//     };
-
-//     await transporter.sendMail(mailOptions);
-//     console.log(`📧 Gmail OTP email sent successfully to ${to}`);
-//     return { success: true, message: "Email sent successfully" };
-//   } catch (error) {
-//     console.error("❌ Gmail email send failed:", error.message);
-//     return { success: false, error: error.message };
-//   }
-// };
-
-
-import sgMail from "@sendgrid/mail";
-
-/**
- * Create reusable SendGrid client
- */
-async function createSendGridClient() {
-  try {
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    console.log("✅ SendGrid client initialized successfully!");
-    return sgMail;
-  } catch (err) {
-    console.error("❌ SendGrid initialization failed:", err.message);
-    throw err;
-  }
+  await transporter.verify();
+  console.log("✅ Gmail SMTP connected successfully!");
+  return transporter;
 }
 
 /**
- * Send email via SendGrid
+ * sendEmail({ to, subject, text, html })
  */
-export const sendEmail = async ({ to, subject, html, text }) => {
+export const sendEmail = async ({ to, subject, text, html }) => {
   try {
-    const sgClient = await createSendGridClient();
-
-    // If only one of html/text is provided, SendGrid is fine with that.
-    // But ensure we don't pass null/undefined as strings.
-    const msg = {
-      to,
-      from: {
-        email: process.env.SENDGRID_FROM,
-        name: process.env.SENDGRID_NAME || "SkillOTech",
-      },
-      subject,
-      ...(typeof text === "string" && text.length ? { text } : {}),
-      ...(typeof html === "string" && html.length ? { html } : {}),
-    };
-
-    if (!msg.text && !msg.html) {
-      throw new Error("Provide at least one of `text` or `html`.");
+    if (!to) {
+      return { success: false, error: "No recipients defined (to is missing)" };
     }
 
-    await sgClient.send(msg);
+    const transporter = await createGmailTransporter();
+
+    const mailOptions = {
+      from: `"SkillOTech" <${process.env.SMTP_USER}>`,
+      to, // ✅ must be string or array of strings
+      subject: subject || "SkillOTech Notification",
+      text: text || "",
+      html: html || "",
+    };
+
+    await transporter.sendMail(mailOptions);
     console.log(`📧 Email sent successfully to ${to}`);
     return { success: true, message: "Email sent successfully" };
   } catch (error) {
-    console.error("❌ Email send failed:", error.response?.body || error.message);
+    console.error("❌ Email send failed:", error);
     return { success: false, error: error.message };
   }
 };
-
